@@ -102,6 +102,7 @@ class S3CloudInterface(CloudInterface):
         url,
         encryption=None,
         jobs=2,
+        aws_irsa=False,
         profile_name=None,
         endpoint_url=None,
         tags=None,
@@ -133,6 +134,7 @@ class S3CloudInterface(CloudInterface):
             tags=tags,
             delete_batch_size=delete_batch_size,
         )
+        self.aws_irsa = aws_irsa
         self.profile_name = profile_name
         self.encryption = encryption
         self.endpoint_url = endpoint_url
@@ -160,7 +162,17 @@ class S3CloudInterface(CloudInterface):
             config_kwargs["read_timeout"] = self.read_timeout
         config = Config(**config_kwargs)
 
-        session = boto3.Session(profile_name=self.profile_name)
+        if self.aws_irsa:
+            # create client token for irsa
+            response = client.get_session_token(
+            DurationSeconds=43200,
+            )
+            token = response['Credentials']['SessionToken']
+            boto3.session(aws_session_token=token)
+            session = boto3.Session(profile_name=self.profile_name)
+        else:
+            session = boto3.Session(profile_name=self.profile_name)
+
         self.s3 = session.resource("s3", endpoint_url=self.endpoint_url, config=config)
 
     @property
