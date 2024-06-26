@@ -164,12 +164,12 @@ class S3CloudInterface(CloudInterface):
 
         if self.aws_irsa:
             # create client token for irsa
-            response = client.get_session_token(
+            response = boto3.client.get_session_token(
             DurationSeconds=43200,
             )
             token = response['Credentials']['SessionToken']
             boto3.session(aws_session_token=token)
-            session = boto3.Session(profile_name=self.profile_name)
+            session = boto3.Session(aws_session_token=token)
         else:
             session = boto3.Session(profile_name=self.profile_name)
 
@@ -474,14 +474,23 @@ class AwsCloudSnapshotInterface(CloudSnapshotInterface):
         https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html
     """
 
-    def __init__(self, profile_name=None, region=None):
+    def __init__(self, aws_irsa=False, profile_name=None, region=None):
         """
         Creates the client necessary for creating and managing snapshots.
 
         :param str profile_name: AWS auth profile identifier.
         :param str region: The AWS region in which snapshot resources are located.
         """
-        self.session = boto3.Session(profile_name=profile_name)
+        if aws_irsa:
+            # create client token for irsa
+            response = boto3.client.get_session_token(
+            DurationSeconds=43200,
+            )
+            token = response['Credentials']['SessionToken']
+            boto3.session(aws_session_token=token)
+            session = boto3.Session(aws_session_token=token)
+        else:
+            session = boto3.Session(profile_name=profile_name)
         # If a specific region was provided then this overrides any region which may be
         # defined in the profile
         self.region = region or self.session.region_name
