@@ -17,6 +17,7 @@
 # along with Barman.  If not, see <http://www.gnu.org/licenses/>
 
 import logging
+import requests
 import shutil
 from io import RawIOBase
 
@@ -163,11 +164,13 @@ class S3CloudInterface(CloudInterface):
         config = Config(**config_kwargs)
 
         if self.aws_irsa:
-            # create client token for irsa
-            response = boto3.client.get_session_token(
-            DurationSeconds=43200,
+            token_result = requests.put(
+                "http://169.254.169.254/latest/api/token",
+                headers={"X-aws-ec2-metadata-token-ttl-seconds": "43200"},
+                proxies={"http": ""},
+                timeout=(10),
             )
-            token = response['Credentials']['SessionToken']
+            token = token_result.text
             boto3.session(aws_session_token=token)
             session = boto3.Session(aws_session_token=token)
         else:
@@ -482,11 +485,13 @@ class AwsCloudSnapshotInterface(CloudSnapshotInterface):
         :param str region: The AWS region in which snapshot resources are located.
         """
         if aws_irsa:
-            # create client token for irsa
-            response = boto3.client.get_session_token(
-            DurationSeconds=43200,
+            token_result = requests.put(
+                "http://169.254.169.254/latest/api/token",
+                headers={"X-aws-ec2-metadata-token-ttl-seconds": "43200"},
+                proxies={"http": ""},
+                timeout=(10),
             )
-            token = response['Credentials']['SessionToken']
+            token = token_result.text
             boto3.session(aws_session_token=token)
             session = boto3.Session(aws_session_token=token)
         else:
