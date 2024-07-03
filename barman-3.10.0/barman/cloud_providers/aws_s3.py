@@ -171,7 +171,6 @@ class S3CloudInterface(CloudInterface):
             timeout=(10),
             )
             token = token_result.text
-            boto3.session(aws_session_token=token)
             session = boto3.Session(aws_session_token=token)
         else:
             session = boto3.Session(profile_name=self.profile_name)
@@ -492,7 +491,6 @@ class AwsCloudSnapshotInterface(CloudSnapshotInterface):
                 timeout=(10),
             )
             token = token_result.text
-            boto3.session(aws_session_token=token)
             session = boto3.Session(aws_session_token=token)
         else:
             session = boto3.Session(profile_name=profile_name)
