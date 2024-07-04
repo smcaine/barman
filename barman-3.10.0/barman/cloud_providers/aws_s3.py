@@ -17,8 +17,8 @@
 # along with Barman.  If not, see <http://www.gnu.org/licenses/>
 
 import logging
+import os
 import shutil
-import requests
 from io import RawIOBase
 
 from barman.clients.cloud_compression import decompress_to_file
@@ -154,6 +154,20 @@ class S3CloudInterface(CloudInterface):
         # Build a session, so we can extract the correct resource
         self._reinit_session()
 
+    def _get_irsa_session():
+        client = boto3.client('sts')
+        with open(os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE"), 'r') as content_file:
+            web_identity_token = content_file.read()
+
+        response = client.assume_role_with_web_identity(
+                RoleArn=os.environ['AWS_ROLE_ARN'],
+                RoleSessionName='barman',
+                WebIdentityToken=web_identity_token,
+                # DurationSeconds=3600 # defaults to an hour, must not be greater than 
+                # the iam role max duration session (this is also default 1 hour)
+            )
+        return response['Credentials']
+
     def _reinit_session(self):
         """
         Create a new session
@@ -164,14 +178,10 @@ class S3CloudInterface(CloudInterface):
         config = Config(**config_kwargs)
 
         if self.aws_irsa:
-            token_result = requests.put(
-            "http://169.254.169.254/latest/api/token",
-            headers={"X-aws-ec2-metadata-token-ttl-seconds": "43200"},
-            proxies={"http": ""},
-            timeout=(10),
-            )
-            token = token_result.text
-            session = boto3.Session(aws_session_token=token)
+            credentials = self._get_irsa_session
+            session = boto3.Session(  aws_access_key_id=credentials['AccessKeyId'],
+                                        aws_secret_access_key=credentials['SecretAccessKey'],
+                                        aws_session_token=credentials['SessionToken'])
         else:
             session = boto3.Session(profile_name=self.profile_name)
 
@@ -484,16 +494,12 @@ class AwsCloudSnapshotInterface(CloudSnapshotInterface):
         :param str region: The AWS region in which snapshot resources are located.
         """
         if aws_irsa:
-            token_result = requests.put(
-                "http://169.254.169.254/latest/api/token",
-                headers={"X-aws-ec2-metadata-token-ttl-seconds": "43200"},
-                proxies={"http": ""},
-                timeout=(10),
-            )
-            token = token_result.text
-            session = boto3.Session(aws_session_token=token)
+            credentials = self._get_irsa_session
+            self.session = boto3.Session(  aws_access_key_id=credentials['AccessKeyId'],
+                                        aws_secret_access_key=credentials['SecretAccessKey'],
+                                        aws_session_token=credentials['SessionToken'])
         else:
-            session = boto3.Session(profile_name=profile_name)
+            self.session = boto3.Session(profile_name=profile_name)
         # If a specific region was provided then this overrides any region which may be
         # defined in the profile
         self.region = region or self.session.region_name

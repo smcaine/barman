@@ -181,9 +181,8 @@ def create_argument_parser(description, source_or_destination=UrlArgumentType.so
     s3_arguments.add_argument(
         "--aws-irsa",
         help="bypasses credentials/profile and uses iam service account",
-        dest="aws_irsa",
         action="store_true",
-        default=True,
+        default=False,
     )
     s3_arguments.add_argument(
         "-P",
